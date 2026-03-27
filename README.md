@@ -1,4 +1,4 @@
-# 📈 Crypto Trading Dashboard (TradingView Clone)
+# 📈 Crypto Trading Dashboard (SimiPulse)
 
 A professional-grade, real-time cryptocurrency charting application inspired by TradingView. This project visualizes live and historical market data using a modern cloud-native architecture.
 
