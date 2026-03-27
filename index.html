@@ -2,45 +2,55 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>TradingView Clone - Dynamic Search</title>
+    <title>SimiPulse</title>
     <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     <style>
-        :root { --bg-color: #131722; --border-color: #2a2e39; --text-color: #d1d4dc; --active-color: #2962ff; }
-        body { margin: 0; background-color: var(--bg-color); color: var(--text-color); font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        header { height: 52px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; }
-        .left-head { display: flex; align-items: center; gap: 15px; }
+        :root { --bg: #131722; --brd: #2a2e39; --txt: #d1d4dc; --blue: #2962ff; }
+        body { margin: 0; background: var(--bg); color: var(--txt); font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        .search-container { background: #2a2e39; border-radius: 4px; padding: 6px 12px; display: flex; align-items: center; gap: 8px; }
-        .search-container input { background: transparent; border: none; color: white; outline: none; width: 180px; text-transform: uppercase; }
 
-        .tf-dropdown { background: #2a2e39; color: white; border: 1px solid var(--border-color); border-radius: 4px; padding: 5px; cursor: pointer; }
-        .login-btn { background: var(--active-color); color: white; border: none; padding: 8px 18px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        header { height: 52px; border-bottom: 1px solid var(--brd); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; }
+        .left-head { display: flex; align-items: center; gap: 12px; }
+        
+        .logo-sp { background: var(--blue); color: white; font-weight: bold; padding: 4px 10px; border-radius: 4px; font-size: 18px; }
+        
+        .search-container { background: var(--brd); padding: 5px 10px; border-radius: 4px; display: flex; align-items: center; }
+        .search-container input { background: transparent; border: none; color: white; outline: none; width: 110px; text-transform: uppercase; font-size: 13px; }
+        
+        .tf-group { display: flex; align-items: center; gap: 2px; }
+        .tf-btn { background: transparent; color: var(--txt); border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 13px; transition: 0.2s; }
+        .tf-btn:hover { background: #363a45; }
+        .tf-btn.active { background: var(--blue); color: white; }
+
+        .login-btn { background: var(--blue); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+
 
         .main-content { display: flex; flex: 1; overflow: hidden; }
         #chart-container { flex: 1; }
-
-        .watchlist { width: 280px; border-left: 1px solid var(--border-color); }
-        .watchlist-header { padding: 15px; font-weight: bold; border-bottom: 1px solid var(--border-color); }
+        .watchlist { width: 280px; border-left: 1px solid var(--brd); }
+        .watchlist-header { padding: 15px; font-weight: bold; border-bottom: 1px solid var(--brd); }
         .list-row { padding: 12px 15px; border-bottom: 1px solid #1e222d; display: flex; justify-content: space-between; cursor: pointer; }
         .list-row:hover { background: #1e222d; }
-        .price-val { font-weight: bold; }
     </style>
 </head>
 <body>
 
     <header>
         <div class="left-head">
-            <div style="font-weight: bold; color: var(--active-color); font-size: 22px;">TV</div>
+            <div class="logo-sp">SP</div>
             <div class="search-container">
-                🔍 <input type="text" id="ticker-search" list="dynamic-ticker-list" placeholder="Search (eg. SOL, PEPE)...">
+                🔍 <input type="text" id="ticker-search" list="dynamic-ticker-list" placeholder="SEARCH">
                 <datalist id="dynamic-ticker-list"></datalist>
             </div>
-            <select class="tf-dropdown" onchange="changeTimeframe(this.value)">
-                <option value="1m">1 min</option>
-                <option value="5m">5 min</option>
-                <option value="1h">1 hour</option>
-                <option value="1d">1 day</option>
-            </select>
+            <div class="tf-group" id="tf-buttons">
+                <button class="tf-btn active" onclick="changeTimeframe('1m', this)">1m</button>
+                <button class="tf-btn" onclick="changeTimeframe('5m', this)">5m</button>
+                <button class="tf-btn" onclick="changeTimeframe('1h', this)">1h</button>
+                <button class="tf-btn" onclick="changeTimeframe('4h', this)">4h</button>
+                <button class="tf-btn" onclick="changeTimeframe('1d', this)">D</button>
+                <button class="tf-btn" onclick="changeTimeframe('1w', this)">W</button>
+                <button class="tf-btn" onclick="changeTimeframe('1M', this)">M</button>
+            </div>
         </div>
         <button class="login-btn" onclick="redirectToCognito()">Sign In</button>
     </header>
@@ -49,9 +59,9 @@
         <div id="chart-container"></div>
         <div class="watchlist">
             <div class="watchlist-header">WATCHLIST</div>
-            <div class="list-row" id="active-row">
+            <div class="list-row">
                 <span id="active-symbol">BTCUSDT</span>
-                <span class="price-val" id="active-price" style="color: #26a69a;">---</span>
+                <span id="active-price" style="color: #26a69a; font-weight: bold;">---</span>
             </div>
         </div>
     </div>
@@ -62,30 +72,21 @@
         let currentTimeframe = "1m";
         let liveInterval = null;
 
-        // --- 1. MINDEN BINANCE TICKER LEKÉRÉSE ---
+        // 1. Binance Tickers
         async function fetchAllBinanceTickers() {
             try {
                 const response = await fetch('https://api.binance.com/api/v3/exchangeInfo');
                 const data = await response.json();
                 const datalist = document.getElementById('dynamic-ticker-list');
-                
-                // Csak az USDT-re végződő, aktív párokat tesszük be
-                const usdtPairs = data.symbols
-                    .filter(s => s.symbol.endsWith('USDT') && s.status === 'TRADING')
-                    .map(s => s.symbol);
-
-                usdtPairs.forEach(symbol => {
-                    const option = document.createElement('option');
-                    option.value = symbol;
-                    datalist.appendChild(option);
+                data.symbols.filter(s => s.symbol.endsWith('USDT') && s.status === 'TRADING').forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.symbol;
+                    datalist.appendChild(opt);
                 });
-                console.log(`${usdtPairs.length} tickers loaded from Binance.`);
-            } catch (e) {
-                console.error("Failed to fetch Binance tickers", e);
-            }
+            } catch (e) { console.error(e); }
         }
 
-        // --- 2. GRAFIKON ÉS ÉLŐ ADATOK ---
+        // 2. Chart Setup
         const chart = LightweightCharts.createChart(document.getElementById('chart-container'), {
             layout: { background: { color: '#131722' }, textColor: '#d1d4dc' },
             grid: { vertLines: { color: '#1e222d' }, horzLines: { color: '#1e222d' } },
@@ -97,7 +98,6 @@
             currentTicker = ticker.toUpperCase();
             currentTimeframe = tf;
             document.getElementById('active-symbol').innerText = currentTicker;
-            
             if (liveInterval) clearInterval(liveInterval);
 
             try {
@@ -128,31 +128,25 @@
             } catch (e) { console.error(e); }
         }
 
-        function changeTicker(t) { 
-            document.getElementById('ticker-search').value = t; 
-            loadChart(t); 
+        function changeTimeframe(tf, btn) {
+            document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            loadChart(currentTicker, tf);
         }
 
-        function changeTimeframe(tf) { loadChart(currentTicker, tf); }
-
         document.getElementById('ticker-search').onkeypress = (e) => { 
-            if(e.key === 'Enter') changeTicker(e.target.value); 
+            if(e.key === 'Enter') { loadChart(e.target.value); } 
         };
 
         function redirectToCognito() {
             const DOMAIN = "eu-north-1svqk5eywa.auth.eu-north-1.amazoncognito.com";
             const CLIENT_ID = "7d47a9slic2r3k2gjr5cm45ef6";
             const REDIRECT_URI = "https://d3h4lvzeltrcpw.cloudfront.net/callback.html";
-
-            const authUrl = `https://${DOMAIN}/login?client_id=${CLIENT_ID}&response_type=token&scope=email+openid+phone&redirect_uri=${REDIRECT_URI}`;
-
-            window.location.href = authUrl;
+            window.location.href = `https://${DOMAIN}/login?client_id=${CLIENT_ID}&response_type=token&scope=email+openid+phone&redirect_uri=${REDIRECT_URI}`;
         }
 
-        // --- INDÍTÁS ---
-        fetchAllBinanceTickers(); // Betölti a listát a háttérben
+        fetchAllBinanceTickers();
         loadChart(currentTicker);
-
         window.onresize = () => chart.resize(document.getElementById('chart-container').clientWidth, document.getElementById('chart-container').clientHeight);
     </script>
 </body>
