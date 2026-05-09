@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimiPulse Terminal</title>
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        :root { 
+            --bg: #0b0e11; --card: #1e222d; --brd: #2a2e39; --txt: #d1d4dc; 
+            --blue: #2962ff; --green: #26a69a; --red: #ef5350; --white: #ffffff;
+        }
+
+        body { 
+            margin: 0; background: var(--bg); color: var(--txt); 
+            font-family: 'Inter', -apple-system, sans-serif; 
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden; 
+        }
+
+        /* --- HEADER --- */
+        header { 
+            height: 60px; border-bottom: 1px solid var(--brd); 
+            display: flex; align-items: center; justify-content: space-between; 
+            padding: 0 20px; background: var(--bg);
+        }
+
+        .left-head { display: flex; align-items: center; gap: 20px; }
+        .logo { font-size: 22px; font-weight: 800; color: var(--white); letter-spacing: -1px; cursor: pointer; }
+        .logo span { color: var(--blue); }
+
+        .search-container { 
+            background: var(--card); border: 1px solid var(--brd); 
+            padding: 6px 12px; border-radius: 6px; display: flex; align-items: center; gap: 8px; 
+        }
+        .search-container input { 
+            background: transparent; border: none; color: var(--white); 
+            outline: none; width: 140px; font-weight: 600; text-transform: uppercase;
+        }
+
+        .tf-group { display: flex; gap: 4px; }
+        .tf-btn { 
+            background: transparent; color: var(--txt); border: none; 
+            padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 13px; 
+        }
+        .tf-btn:hover { background: #2a2e39; }
+        .tf-btn.active { background: var(--blue); color: white; }
+
+        /* --- AUTH SECTION --- */
+        .auth-zone { display: flex; align-items: center; gap: 15px; }
+        .user-info { font-size: 13px; color: #848e9c; display: flex; align-items: center; gap: 10px; }
+        .login-btn { 
+            background: var(--blue); color: white; border: none; 
+            padding: 8px 20px; border-radius: 6px; font-weight: 700; cursor: pointer; 
+        }
+        .logout-btn { 
+            background: transparent; color: var(--red); border: 1px solid var(--red); 
+            padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;
+        }
+
+        /* --- MAIN LAYOUT --- */
+        .main-wrapper { display: flex; flex: 1; overflow: hidden; }
+        #chart-container { flex: 1; position: relative; }
+
+        /* --- SIDEBAR --- */
+        .sidebar { 
+            width: 320px; border-left: 1px solid var(--brd); 
+            display: flex; flex-direction: column; background: var(--bg); 
+        }
+        .sidebar-section { flex: 1; display: flex; flex-direction: column; border-bottom: 1px solid var(--brd); }
+        .sidebar-header { 
+            padding: 15px; font-size: 12px; font-weight: 800; color: #848e9c; 
+            background: #131722; display: flex; justify-content: space-between; align-items: center;
+        }
+        
+        .list-content { flex: 1; overflow-y: auto; }
+        
+        .watchlist-item { 
+            padding: 12px 15px; border-bottom: 1px solid #1e222d; 
+            display: flex; justify-content: space-between; align-items: center; transition: 0.2s;
+            cursor: pointer;
+        }
+        .watchlist-item:hover { background: #1e222d; }
+        
+        .delete-btn { 
+            background: transparent; color: var(--red); border: none; 
+            font-size: 18px; cursor: pointer; font-weight: bold; padding: 5px;
+        }
+
+        .btn-add { 
+            background: var(--green); color: white; border: none; 
+            padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold;
+        }
+
+        .alert-box { padding: 15px; background: #131722; }
+        .alert-input { 
+            width: 100%; background: var(--bg); border: 1px solid var(--brd); 
+            color: white; padding: 8px; border-radius: 4px; margin-bottom: 10px; box-sizing: border-box;
+        }
+
+        .status {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status.active {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+            border: 1px solid #00ff88;
+        }
+
+        .status.triggered {
+            background: rgba(255, 166, 0, 0.1);
+            color: #ffa600;
+            border: 1px solid #ffa600;
+            opacity: 0.8;
+        }
+
+        .row-inactive {
+            opacity: 0.5;
+            filter: grayscale(0.5);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .btn-delete-alert {
+            background: none;
+            border: none;
+            color: #ff4d4d;
+            font-size: 18px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn-delete-alert:hover {
+            transform: scale(1.3);
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="left-head">
+        <div class="logo" onclick="location.reload()">Simi<span>Pulse</span></div>
+        <div class="search-container">
+            🔍 <input type="text" id="ticker-search" list="tickers" placeholder="Search...">
+            <datalist id="tickers"></datalist>
+        </div>
+        <div class="tf-group">
+            <button class="tf-btn active" onclick="changeTF('1m', this)">1m</button>
+            <button class="tf-btn" onclick="changeTF('15m', this)">15m</button>
+            <button class="tf-btn" onclick="changeTF('1h', this)">1h</button>
+            <button class="tf-btn" onclick="changeTF('4h', this)">4h</button>
+            <button class="tf-btn" onclick="changeTF('1d', this)">D</button>
+            <button class="tf-btn" onclick="changeTF('1w', this)">W</button>
+            <button class="tf-btn" onclick="changeTF('1M', this)">M</button>
+        </div>
+    </div>
+    
+    <div class="auth-zone" id="auth-ui">
+        <button class="login-btn" onclick="login()">Sign In</button>
+    </div>
+</header>
+
+<div class="main-wrapper">
+    <div id="chart-container"></div>
+    
+    <div class="sidebar">
+        <div class="sidebar-section">
+            <div class="sidebar-header">
+                WATCHLIST
+                <button id="add-watchlist-btn" class="btn-add" style="display:none;" onclick="addToWatchlist()">+ ADD</button>
+            </div>
+            <div id="watchlist-items" class="list-content">
+                <div id="watchlist-placeholder" style="padding:20px; color:#474d57; font-size:13px; text-align:center;">
+                    Log in to manage your list.
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-header">PRICE ALERTS</div>
+            <div id="alert-controls" class="alert-box" style="display:none;">
+                <input type="number" id="alert-price" class="alert-input" placeholder="Target price">
+                <button class="btn-add" style="width:100%; padding:10px;" onclick="setAlert()">SET ALERT</button>
+            </div>
+            <div id="alert-list" class="list-content">
+                <table style="width:100%; font-size:12px; border-collapse: collapse;">
+                    <tbody id="alerts-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- KONFIGURÁCIÓ ---
+    const CONFIG = {
+        EC2_API: "https://d1cql0z1kk6brp.cloudfront.net", 
+        API_GW: "https://imuh4w2sbg.execute-api.eu-central-1.amazonaws.com", 
+        
+        COGNITO_DOMAIN: "eu-central-1uafyecwed.auth.eu-central-1.amazoncognito.com",
+        CLIENT_ID: "5336p54e6sq0s3pt4eq0180324",
+        REDIRECT_URI: "https://d1cql0z1kk6brp.cloudfront.net/callback.html"
+    };
+
+    let currentTicker = "BTCUSDT";
+    let currentTimeframe = "1m";
+    let liveInterval = null;
+    let currentPrice = 0;
+
+    // --- AUTH LOGIKA ---
+    function checkAuth() {
+        const token = localStorage.getItem('id_token');
+        const authUI = document.getElementById('auth-ui');
+        const watchBtn = document.getElementById('add-watchlist-btn');
+        const alertCtrl = document.getElementById('alert-controls');
+
+        if (token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                authUI.innerHTML = `
+                    <div class="user-info">
+                        <span>👤 ${payload.email}</span>
+                        <button class="logout-btn" onclick="logout()">Log out</button>
+                    </div>
+                `;
+                if(watchBtn) watchBtn.style.display = "block";
+                if(alertCtrl) alertCtrl.style.display = "block";
+                
+                loadUserWatchlist();
+                loadUserAlerts();
+            } catch(e) { logout(); }
+        }
+    }
+
+    function getAuthToken() { return localStorage.getItem('id_token'); }
+
+    function login() {
+        window.location.href = `https://${CONFIG.COGNITO_DOMAIN}/login?client_id=${CONFIG.CLIENT_ID}&response_type=token&scope=email+openid+phone&redirect_uri=${CONFIG.REDIRECT_URI}`;
+    }
+
+    function logout() { localStorage.clear(); window.location.reload(); }
+
+    // --- CHART BEÁLLÍTÁSA ---
+    const chart = LightweightCharts.createChart(document.getElementById('chart-container'), {
+        layout: { background: { color: '#0b0e11' }, textColor: '#d1d4dc' },
+        grid: { vertLines: { color: '#1e222d' }, horzLines: { color: '#1e222d' } },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        timeScale: { borderColor: '#2a2e39', timeVisible: true }
+    });
+    const candleSeries = chart.addCandlestickSeries({ 
+        upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
+        wickUpColor: '#26a69a', wickDownColor: '#ef5350' 
+    });
+
+    // --- ADATKEZELÉS ---
+    async function loadData(ticker, tf = currentTimeframe) {
+        currentTicker = ticker.toUpperCase();
+        currentTimeframe = tf;
+        if (liveInterval) clearInterval(liveInterval);
+
+        try {
+            // Előzmények (EC2 Backend)
+            const res = await fetch(`${CONFIG.EC2_API}/api/history/${currentTicker}/${currentTimeframe}`);
+            const history = await res.json();
+            if (history && history.length > 0) {
+                history.sort((a, b) => a.k.t - b.k.t);
+                candleSeries.setData(history.map(d => ({
+                    time: d.k.t / 1000,
+                    open: parseFloat(d.k.o), high: parseFloat(d.k.h), low: parseFloat(d.k.l), close: parseFloat(d.k.c)
+                })));
+                chart.timeScale().scrollToPosition(0, false);
+            }
+
+            // Élő frissítés (EC2 Backend)
+            const updateLive = async () => {
+            try {
+                const liveRes = await fetch(`${CONFIG.EC2_API}/api/live/${currentTicker}/${currentTimeframe}`);
+                const data = await liveRes.json();
+                if(data && data.k) {
+                    currentPrice = parseFloat(data.k.c);
+                    candleSeries.update({
+                        time: data.k.t / 1000,
+                        open: parseFloat(data.k.o), 
+                        high: parseFloat(data.k.h), 
+                        low: parseFloat(data.k.l), 
+                        close: parseFloat(data.k.c)
+                    });
+                }
+            } catch(e) { console.error("Élő adat hiba:", e); }
+        };
+
+        await updateLive();
+
+        liveInterval = setInterval(updateLive, 1000);
+
+        } catch(e) { console.error("Adat hiba:", e); }
+    }
+
+    // --- WATCHLIST & ALERT FÜGGVÉNYEK ---
+
+    async function addToWatchlist() {
+        const token = getAuthToken();
+        if (!token) return;
+        // MÓDOSÍTVA: /user/ elérés hozzáadva
+        const response = await fetch(`${CONFIG.API_GW}/user/watchlist`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbol: currentTicker })
+        });
+        if (response.ok) loadUserWatchlist();
+    }
+
+    async function loadUserWatchlist() {
+        const token = getAuthToken();
+        const container = document.getElementById('watchlist-items');
+        if (!token || !container) return;
+
+        const response = await fetch(`${CONFIG.API_GW}/user/watchlist`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            const watchlist = await response.json();
+            container.innerHTML = ''; 
+            watchlist.forEach(symbol => {
+                const itemHtml = `
+                    <div class="watchlist-item" onclick="changeChart('${symbol}')">
+                        <span>${symbol}</span>
+                        <button class="delete-btn" onclick="removeFromWatchlist(event, '${symbol}')">×</button>
+                    </div>`;
+                container.insertAdjacentHTML('beforeend', itemHtml);
+            });
+        }
+    }
+
+    async function removeFromWatchlist(event, symbol) {
+        event.stopPropagation();
+        const token = getAuthToken();
+        await fetch(`${CONFIG.API_GW}/user/watchlist`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbol: symbol })
+        });
+        loadUserWatchlist();
+    }
+
+    async function setAlert() {
+        const token = getAuthToken();
+        const priceInput = document.getElementById('alert-price').value;
+        if (!token || !priceInput) return;
+
+        const condition = parseFloat(priceInput) > currentPrice ? 'above' : 'below';
+
+        const response = await fetch(`${CONFIG.API_GW}/user/alerts`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbol: currentTicker, targetPrice: priceInput, condition: condition })
+        });
+        if (response.ok) loadUserAlerts();
+    }
+
+    async function loadUserAlerts() {
+        const token = getAuthToken();
+        const tableBody = document.getElementById('alerts-body');
+        if (!token || !tableBody) return;
+
+        const response = await fetch(`${CONFIG.API_GW}/user/alerts`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            const alerts = await response.json();
+            tableBody.innerHTML = '';
+            
+            alerts.forEach(alert => {
+                const rowClass = alert.isActive ? '' : 'row-inactive';
+                
+                const statusText = alert.isActive ? 'ACTIVE' : 'TRIGGERED';
+                const statusClass = alert.isActive ? 'active' : 'triggered';
+                
+                const conditionIcon = alert.condition === 'above' ? '▲' : '▼';
+                const conditionColor = alert.condition === 'above' ? 'var(--green)' : 'var(--red)';
+
+                const row = `
+                    <tr class="${rowClass}" style="border-bottom: 1px solid #1e222d;">
+                        <td style="padding:12px; font-weight: bold;">${alert.symbol.toUpperCase()}</td>
+                        <td style="color: ${conditionColor}; font-size: 16px;">${conditionIcon}</td>
+                        <td style="font-family: monospace; letter-spacing: 0.5px;">
+                            ${parseFloat(alert.targetPrice).toLocaleString()}
+                        </td>
+                        <td>
+                            <span class="status ${statusClass}">${statusText}</span>
+                        </td>
+                        <td style="text-align: center;">
+                            <button onclick="deleteAlert('${alert.alertId}')" class="btn-delete-alert" title="Delete">×</button>
+                        </td>
+                    </tr>`;
+                
+                tableBody.insertAdjacentHTML('beforeend', row);
+            });
+        }
+    }
+
+    async function deleteAlert(alertId) {
+        const token = getAuthToken();
+        await fetch(`${CONFIG.API_GW}/user/alerts`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ alertId: alertId })
+        });
+        loadUserAlerts();
+    }
+
+    function changeChart(symbol) {
+        document.getElementById('ticker-search').value = symbol;
+        loadData(symbol);
+    }
+
+    function changeTF(tf, btn) {
+        document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadData(currentTicker, tf);
+    }
+
+    // --- INDÍTÁS ---
+    window.onload = () => {
+        checkAuth();
+        loadData(currentTicker);
+        
+        // Binance ticker lista a keresőhöz
+        fetch('https://api.binance.com/api/v3/exchangeInfo')
+            .then(r => r.json())
+            .then(data => {
+                const list = document.getElementById('tickers');
+                data.symbols.filter(s => s.symbol.endsWith('USDT')).forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.symbol;
+                    list.appendChild(opt);
+                });
+            });
+    };
+
+    document.getElementById('ticker-search').onkeypress = (e) => {
+        if(e.key === 'Enter') loadData(e.target.value);
+    };
+
+    window.onresize = () => chart.applyOptions({ width: document.getElementById('chart-container').clientWidth });
+</script>
+</body>
+</html>

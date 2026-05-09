@@ -1,0 +1,8 @@
+version: '3.8'
+services:
+  ingestor:
+    build: .
+    image: simipulse-ingestor:latest
+    restart: always
+    environment:
+      - AWS_REGION=eu-north-1
